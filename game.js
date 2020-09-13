@@ -7,11 +7,13 @@ function preload () {
 	this.load.image('bug2', 'https://s3.amazonaws.com/codecademy-content/courses/learn-phaser/physics/bug_2.png');
 	this.load.image('bug3', 'https://s3.amazonaws.com/codecademy-content/courses/learn-phaser/physics/bug_3.png');
 	this.load.image('platform', 'https://s3.amazonaws.com/codecademy-content/courses/learn-phaser/physics/platform.png');
-	this.load.image('gunArrow', 'assets/Blue/blue_arrow.png', { frameWidth: 10, frameHeight: 10 });
-	this.load.image('pinkBeam', 'assets/Blue/pink_beam.png');
-	this.load.audio('playerBlasterSound', 'assets/Blue/player_blaster_sound.mp3');
-	this.load.spritesheet('codeyIdle', 'assets/Blue/Gunner_Blue_Idle.png', { frameWidth: 48, frameHeight: 48 });
-	this.load.spritesheet('codeyRun', 'assets/Blue/Gunner_Blue_Run.png', { frameWidth: 48, frameHeight: 48 });
+	this.load.image('gunArrow', 'assets/other/blue_arrow.png');
+	this.load.image('pinkBeam', 'assets/other/pink_beam.png');
+	this.load.audio('playerBlasterSound', 'assets/sounds/player_blaster_sound.mp3');
+	this.load.spritesheet('codeyIdle', 'assets/spritesheets/player/Gunner_Blue_Idle.png', { frameWidth: 48, frameHeight: 48 });
+	this.load.spritesheet('codeyRun', 'assets//spritesheets/player/Gunner_Blue_Run.png', { frameWidth: 48, frameHeight: 48 });
+	this.load.spritesheet('skeletonIdle', 'assets/spritesheets/enemies/skeleton/Idle.png', { frameWidth: 150, frameHeight: 150 })
+	this.load.spritesheet('skeletonWalk', 'assets/spritesheets/enemies/skeleton/Walk.png', { frameWidth: 150, frameHeight: 150 })
 
 }
 
@@ -26,7 +28,7 @@ function create () {
 	gameState.scoreText = this.add.text(320, 340, 'Score: 0', { fontSize: '15px', fill: '#000' })
 	gameState.clockReady = false;
 
-	gameState.player = this.physics.add.sprite(320, 300, 'codeyIdle').setScale(1);
+	gameState.player = this.physics.add.sprite(25, 300, 'codeyIdle').setScale(1).setGravityY(150);
 	gameState.player.jumbReady = true;
 	
 	gameState.player.setCollideWorldBounds(true);
@@ -39,20 +41,45 @@ function create () {
 
 	gameState.projectiles = this.physics.add.group();
 
+	gameState.enemies = this.physics.add.group();
+
+
+	//Generates enemies for level
+	function enemyGen (number) {
+		for(let i = 0; i < number; i++) {
+			const xCoord = between(200,640);
+			gameState.enemies.create(xCoord, -40, 'skeletonIdle')
+			.setCollideWorldBounds(true)
+			.setSize(50, 50, true);
+		}
+	}
+
+	enemyGen(5);
+
 	//New Code Character Animations
 	this.anims.create({
-		key: 'idle',
+		key: 'playerIdle',
 		frames: this.anims.generateFrameNumbers('codeyIdle', { start: 1, end: 5 }),
 		frameRate: 5,
 		repeat: -1
 	});
 
 	this.anims.create({
-		key: 'run',
+		key: 'playerRun',
 		frames: this.anims.generateFrameNumbers('codeyRun', { start: 1, end: 5 }),
 		frameRate: 5,
 		repeat: -1
 	});
+
+	this.anims.create({
+		key: 'skeletonIdle',
+		frames: this.anims.generateFrameNumbers('skeletonIdle', { start: 1, end: 4 }),
+		frameRate: 5,
+		repeat: -1
+	})
+
+	//Colliders
+	this.physics.add.collider(gameState.enemies, platforms);
 
 }
 
@@ -78,40 +105,52 @@ function update () {
 
 	gameState.gameClock = this.time;
 
-	//Movement and "Jumbing"
-	if(!gameState.isAiming) {
+		//Movement and "Jumbing"
 		//Press A: move left
-		if(this.cursors.left.isDown){
-			gameState.player.setVelocityX(-200)
-			gameState.player.anims.play('run', true);
-			gameState.player.flipX = true;
+			if(this.cursors.left.isDown){
+				gameState.player.setVelocityX(-200)
+				if(!gameState.isAiming) {
+					gameState.player.anims.play('playerRun', true);
+				}
+				if(gameState.gunArrow && !gameState.player.flipX) {
+					let flipAngle = flipRotationAlongXAxis(gameState.gunArrow.angle);
+					Phaser.Actions.RotateAround([gameState.gunArrow], gameState.player, Phaser.Math.DegToRad(flipAngle));
+					gameState.gunArrow.reverse = !gameState.gunArrow.reverse;
+				}
+				gameState.player.flipX = true;
+			} 
+			//Press D: move right
+			else if (this.cursors.right.isDown) {
+				gameState.player.setVelocityX(200)
+				if(!gameState.isAiming) {
+					gameState.player.anims.play('playerRun', true);
+				}
+				if(gameState.gunArrow && gameState.player.flipX) {
+					let flipAngle = flipRotationAlongXAxis(gameState.gunArrow.angle);
+					Phaser.Actions.RotateAround([gameState.gunArrow], gameState.player, Phaser.Math.DegToRad(flipAngle));
+					gameState.gunArrow.reverse = !gameState.gunArrow.reverse;
+				}
+				gameState.player.flipX = false;
+			}
+			//Else idle and stop moving horizontally
+			else {
+				gameState.player.setVelocityX(0);
+				if(!gameState.isAiming) {
+					gameState.player.anims.play('playerIdle', true);
+				}
+			}
 	
-		} 
-		//Press D: move right
-		else if (this.cursors.right.isDown) {
-			gameState.player.setVelocityX(200)
-			gameState.player.anims.play('run', true);
-			gameState.player.flipX = false;
-	
-		}
-		//Else idle and stop moving horizontally
-		else {
-			gameState.player.setVelocityX(0);
-			gameState.player.anims.play('idle', true);
-		}
-
-		//Jumping
-		if(this.cursors.up.isDown && gameState.player.jumbReady) {
-			gameState.player.jumbReady = false;
-			gameState.player.setVelocityY(-200);
-		}
-	}
+			//Jumping
+			if(this.cursors.up.isDown && gameState.player.jumbReady) {
+				gameState.player.jumbReady = false;
+				gameState.player.setVelocityY(-200);
+			}
 
 	//Press Spacebar: Create Arrow
 	if(this.cursors.spacebar.isDown && !gameState.isAiming) {
 		if(cooldownReady(gameState.lastShotTime, gameState.gameClock.now, 2000)) {
 				gameState.player.setVelocityX(0);
-				gameState.player.anims.pause();
+				gameState.player.anims.stop();
 				this.physics.pause();
 				gameState.isAiming = true;
 				if(gameState.player.flipX) {
@@ -135,14 +174,14 @@ function update () {
 		//Right Pointing Arrow
 		if(!gameState.player.flipX) {
 			if(gameState.gunArrow.reverse) {
-				Phaser.Actions.RotateAround([gameState.gunArrow], gameState.player, +0.04);
+				Phaser.Actions.RotateAroundDistance([gameState.gunArrow], gameState.player, +0.04, 75);
 				if(shouldArrowReverse(Math.ceil(angleDeg), Phaser.Math.Angle.WrapDegrees(75))) {
 					gameState.gunArrow.reverse = false;
 				}
 			}	
 			else {
-				Phaser.Actions.RotateAround([gameState.gunArrow], gameState.player, -0.04);
-				if(shouldArrowReverse(Math.floor(angleDeg), Phaser.Math.Angle.WrapDegrees(-90))) {
+				Phaser.Actions.RotateAroundDistance([gameState.gunArrow], gameState.player, -0.04, 75);
+				if(shouldArrowReverse(Math.floor(angleDeg), Phaser.Math.Angle.WrapDegrees(-75))) {
 					gameState.gunArrow.reverse = true;
 				}
 			}
@@ -150,23 +189,30 @@ function update () {
 		//Left Pointing Arrow
 		else {
 			if(gameState.gunArrow.reverse) {
-				Phaser.Actions.RotateAround([gameState.gunArrow], gameState.player, +0.04);
-				if(shouldArrowReverse(Math.ceil(angleDeg), Phaser.Math.Angle.WrapDegrees(-90))) {
+				Phaser.Actions.RotateAroundDistance([gameState.gunArrow], gameState.player, +0.04, 75);
+				if(shouldArrowReverse(Math.ceil(angleDeg), Phaser.Math.Angle.WrapDegrees(-105))) {
 					gameState.gunArrow.reverse = false;
 				}
 			}	
 			else {
-				Phaser.Actions.RotateAround([gameState.gunArrow], gameState.player, -0.04);
+				Phaser.Actions.RotateAroundDistance([gameState.gunArrow], gameState.player, -0.04, 75);
 				if(shouldArrowReverse(Math.floor(angleDeg), Phaser.Math.Angle.WrapDegrees(105))) {
 					gameState.gunArrow.reverse = true;
 				}
 			}
 		}
+		//console.log(gameState.gunArrow.angle);
+
 
 		//Handles if the spacebar is pressed with aiming arrow 
 		//which ----> shoots the gun
 		if(this.cursors.spacebar.isDown && cooldownReady(gameState.lastShotTime, gameState.gameClock.now, 1000  )) {
 			let projectile = this.physics.add.sprite(gameState.player.x, gameState.player.y, 'pinkBeam').setScale(0.7);
+			//Colliders
+			this.physics.add.collider(projectile, gameState.enemies, (enemy, projectile) => {
+				enemy.destroy();
+				projectile.destroy();
+			});
 			projectile.angle = angleDeg;
 			gameState.projectiles.add(projectile);
 			gameState.lastShotTime = gameState.gameClock.now;
@@ -189,6 +235,17 @@ function update () {
 		}
 	}
 
+	//Handles Enemies
+		let enemies = gameState.enemies.getChildren();
+		for(let i = 0; i < enemies.length; i++) {
+			enemies[i].setVelocityX(0);
+			if(!gameState.gunArrow) {
+				enemies[i].anims.play('skeletonIdle', true);
+			}
+			else {
+				enemies[i].anims.pause();
+			}
+		}
 }
 
 //Returns true if angle is within 1 value of confidence
@@ -204,6 +261,37 @@ function shouldArrowReverse(angleDeg, angleToReverse) {
 		return false;
 	}
 }
+
+//Flips direction of arrow along vertical axis
+function flipRotationAlongXAxis(angle) {
+	let flippedAngle;
+	if(angle > 90 && angle <= 180) {
+		flippedAngle = (-2)*Math.abs(angle - 90);
+	}
+	else if(angle <= 90 && angle >= 0){
+		flippedAngle = (2)*Math.abs(angle - 90);
+	}
+	else if (angle <= -90 && angle > -180) {
+		flippedAngle = (2)*Math.abs(90 - angle);
+
+	}
+	else {
+		flippedAngle = (-2)*Math.abs(-90 - angle);
+	}
+	//console.log("Angle: " + angle)
+	//console.log("Flip: " + flippedAngle);
+	return flippedAngle;
+}
+
+/**
+ * Returns a random number between min (inclusive) and max (exclusive)
+ */
+function between(min, max) {  
+  return Math.floor(
+    Math.random() * (max - min) + min
+  )
+}
+
 
 //Functions returns true if cooldown is ready
 function cooldownReady(lastShotTime, currentClock, cooldownTime) {
@@ -229,7 +317,7 @@ const config = {
 		arcade: {
 			gravity: {y: 200},
 			enableBody: true,
-			debug: false,
+			debug: true,
 		}
 	},
   scene: {
