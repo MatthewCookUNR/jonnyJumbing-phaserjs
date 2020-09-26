@@ -117,10 +117,10 @@
   //Update enemy position
   function updateEnemies(enemyArray) {
     for(let i = 0; i < enemyArray.length; i++) {
-      if(enemyArray[i].checkWorldBounds && enemyArray[i].body.velocity.x > 0 ) {
+      if(enemyArray[i].body.velocity.x > 0 ) {
         enemyArray[i].setVelocityX(25);
       }
-      else if(enemyArray[i].checkWorldBounds){
+      else {
         enemyArray[i].setVelocityX(-25);
       }
     }
@@ -131,10 +131,8 @@
     for(let i = 0; i < number; i++) {
       const xCoord = this.between(200,640);
       let enemy = gameState.enemies.create(xCoord, -40, 'skeletonIdle')
-      .setCollideWorldBounds(true)
       .setSize(35, 35, true);
       enemy.flipX = true;
-      enemy.checkWorldBounds = true;
-      enemy.setVelocityX(-100);
+      enemy.setVelocityX(-25);
     }
   }
