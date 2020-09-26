@@ -67,12 +67,30 @@
   }
   
   //Function creates a platform by repeating the tile a given number of times to the right of x,y input
-  function createCombinedPlatform(platformGroup, platformBuffer, x, y, type, scaleX, scaleY, numberPlatforms) {
+  /*function createCombinedPlatform(platformGroup, platformBuffer, x, y, type, scaleX, scaleY, numberPlatforms) {
     platformBuffer.create(x, y - 35, type).setScale(scaleX, scaleY).refreshBody().setVisible(false);
     for(let i = 1; i < numberPlatforms+1; i++) {
       platformGroup.create(x + i*35, y, type).setScale(scaleX, scaleY).refreshBody();
     }
     platformBuffer.create(x + (numberPlatforms+1)*35, y - 35, type).setScale(scaleX, scaleY).refreshBody().setVisible(false);
+  }*/
+  
+  function placeBlock(scene, pos, key) {
+    let block = scene.add.sprite(0,0,key).setScale(0.9);
+    gameState.aGrid.placeAtIndex(pos,block);
+    gameState.platforms.add(block);
+  }
+
+  function placePlatform(scene, pos, key) {
+    let block = scene.add.sprite(0,0,key).setScale(4, 0.5);
+    gameState.aGrid.placeAtIndex(pos,block);
+    gameState.platforms.add(block);
+  }
+
+  function placeBlockBuffer(scene, pos, key) {
+    let block = scene.add.sprite(0,0,key).setScale(0.5).setVisible(false);
+    gameState.aGrid.placeAtIndex(pos,block);
+    gameState.platformBuffer.add(block);
   }
   
   //Function creates projectile object with given info
@@ -99,10 +117,10 @@
   //Update enemy position
   function updateEnemies(enemyArray) {
     for(let i = 0; i < enemyArray.length; i++) {
-      if(enemyArray[i].body.velocity.x > 0) {
+      if(enemyArray[i].checkWorldBounds && enemyArray[i].body.velocity.x > 0 ) {
         enemyArray[i].setVelocityX(25);
       }
-      else {
+      else if(enemyArray[i].checkWorldBounds){
         enemyArray[i].setVelocityX(-25);
       }
     }
@@ -112,8 +130,11 @@
   function enemyGen (number) {
     for(let i = 0; i < number; i++) {
       const xCoord = this.between(200,640);
-      gameState.enemies.create(xCoord, -40, 'skeletonIdle')
+      let enemy = gameState.enemies.create(xCoord, -40, 'skeletonIdle')
       .setCollideWorldBounds(true)
       .setSize(35, 35, true);
+      enemy.flipX = true;
+      enemy.checkWorldBounds = true;
+      enemy.setVelocityX(-100);
     }
   }

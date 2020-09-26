@@ -7,8 +7,8 @@
   */
 const config = {
   type: Phaser.AUTO,
-  width: 640,
-	height: 640,
+  width: 800,
+	height: 480,
 	backgroundColor: "ffffff",
 	parent: 'phaser-game',
 	physics: {

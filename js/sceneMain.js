@@ -26,42 +26,64 @@ class SceneMain extends Phaser.Scene {
   //Initializes player and other objects that are there at start
   //of the game
   create () {
+    //Create Static Groups
     gameState.platforms = this.physics.add.staticGroup();
     gameState.platformBuffer = this.physics.add.staticGroup();
-  
+
+    //Create Groups
     gameState.projectiles = this.physics.add.group();
     gameState.enemies = this.physics.add.group();
-  
-    gameState.platforms.create(320, 350, 'platform').setScale(2, 0.5).refreshBody();
-  
-    //Create Scene 1 Platforms
-    createCombinedPlatform(gameState.platforms, gameState.platformBuffer, 125, 280, 'grassTile', 0.8, 0.8, 4);
-    createCombinedPlatform(gameState.platforms, gameState.platformBuffer, 400, 280, 'grassTile', 0.8, 0.8, 4);
-  
-    gameState.scoreText = this.add.text(320, 340, 'Score: 0', { fontSize: '15px', fill: '#000' })
+
+    //Create game objects/data
+
+
     gameState.clockReady = false;
-  
+
     gameState.player = this.physics.add.sprite(25, 300, 'playerIdle').setScale(1).setSize(35, 35, true).setGravityY(200);
     gameState.player.jumbReady = true;
-    
     gameState.player.setCollideWorldBounds(true);
-  
+
+    //Create AlignGrid for placing objects/platforms
+    gameState.aGrid = new AlignGrid({scene:this,rows:11,cols:20});
+    //gameState.aGrid.showNumbers();
+    gameState.aGrid.placeAtIndex(120,gameState.player);
+
+
+    //Create Level Platforms
+    createLevelOneGamePlatforms(this);
+    createLevelBoundary(this);
+
+    //Create on-screen display UI
+    gameState.scoreText = this.add.text(320, 365, 'Score: 0', { fontSize: '15px', fill: '#000' })
+      
+    //Collider for play to not fall through platforms
     this.physics.add.collider(gameState.player, gameState.platforms, function () {
       gameState.player.jumbReady = true;
     });
   
+    //Overlap collider enemies to add buffer at end of platforms to help keep enemies
+    //from walking off
     this.physics.add.overlap(gameState.enemies, gameState.platformBuffer, function (enemy) {
-      if(enemy.body.velocity.x > 0) {
+      if(enemy.body.touching.right) {
         enemy.setVelocityX(-25);
-        if(enemy.body.blocked) {
-          enemy.x = enemy.x - 1
-        }
+        enemy.flipX = true;
       }
-      else {
+      else if(enemy.body.touching.left) {
+          enemy.setVelocityX(25);
+          enemy.flipX = false;
+      }
+    });
+      
+    //Collider for enemies to bounce movement
+    //when they hit a platform from left or right side
+    this.physics.add.collider(gameState.enemies, gameState.platforms, function (enemy) {
+      if(enemy.body.touching.left) {
         enemy.setVelocityX(25);
-        if(enemy.body.blocked) {
-          enemy.x = enemy.x + 1
-        }
+        enemy.flipX = false;
+      }
+      else if (enemy.body.touching.right) {
+        enemy.setVelocityX(-25);
+        enemy.flipX = true;
       }
     });
   
@@ -90,11 +112,7 @@ class SceneMain extends Phaser.Scene {
       frames: this.anims.generateFrameNumbers('skeletonIdle', { start: 1, end: 4 }),
       frameRate: 5,
       repeat: -1
-    })
-  
-    //Colliders
-    this.physics.add.collider(gameState.enemies, gameState.platforms);
-  
+    })  
   }
   
   //Runs every frame
@@ -263,7 +281,7 @@ class SceneMain extends Phaser.Scene {
   
     //Handles Enemies
       let enemies = gameState.enemies.getChildren();
-      updateEnemies(gameState.enemies.getChildren())
+      updateEnemies(enemies)
       for(let i = 0; i < enemies.length; i++) {
         if(!gameState.blasterArrow) {
           enemies[i].anims.play('skeletonIdle', true);
@@ -272,5 +290,26 @@ class SceneMain extends Phaser.Scene {
           enemies[i].anims.pause();
         }
       }
+  }
+}
+
+function createLevelOneGamePlatforms(scene) {
+  placeBlock(scene, 125, 'grassTile');
+  placeBlock(scene, 126, 'grassTile');
+  placeBlock(scene, 127, 'grassTile');
+  placeBlock(scene, 128, 'grassTile');
+  placeBlock(scene, 129, 'grassTile');
+  placeBlockBuffer(scene, 104, 'grassTile');
+  placeBlockBuffer(scene, 110, 'grassTile');
+  placePlatform(scene, 160, 'platform');
+}
+
+function createLevelBoundary(scene) {
+  for(let i = 0; i < 8; i++) {
+    placeBlockBuffer(scene, i*20, 'grassTile');
+    placeBlockBuffer(scene, ((i+1)*20-1), 'grassTile');
+  }
+  for(let i = 1; i < 19; i++) {
+    placeBlockBuffer(scene, i, 'grassTile');
   }
 }
