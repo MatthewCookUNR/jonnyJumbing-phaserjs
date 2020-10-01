@@ -127,10 +127,10 @@
   }
 
   //Generates enemies for level
-  function enemyGen (number) {
+  function enemyGen (number, enemyType) {
     for(let i = 0; i < number; i++) {
       const xCoord = this.between(200,640);
-      let enemy = gameState.enemies.create(xCoord, -40, 'skeletonIdle')
+      let enemy = gameState.enemies.create(xCoord, -40, enemyType)
       .setSize(35, 35, true);
       enemy.flipX = true;
       enemy.setVelocityX(-25);

@@ -17,8 +17,9 @@ class SceneMain extends Phaser.Scene {
     this.load.image('blasterArrow', 'assets/other/blue_arrow.png');
     this.load.image('pinkBeam', 'assets/other/pink_beam.png');
     this.load.audio('playerBlasterSound', 'assets/sounds/player_blaster_sound.mp3');
-    this.load.spritesheet('playerIdle', 'assets/spritesheets/player/Gunner_Blue_Idle.png', { frameWidth: 48, frameHeight: 48 });
-    this.load.spritesheet('playerRun', 'assets/spritesheets/player/Gunner_Blue_Run.png', { frameWidth: 48, frameHeight: 48 });
+    this.load.spritesheet('playerIdle', 'assets/spritesheets/player/player_idle.png', { frameWidth: 52, frameHeight: 39 });
+    this.load.spritesheet('playerRun', 'assets/spritesheets/player/player_run.png', { frameWidth: 52, frameHeight: 39 });
+    this.load.spritesheet('playerAttack1', 'assets/spritesheets/player/player_attack_p1.png', {frameWidth: 52, frameHeight: 39} )
     this.load.spritesheet('skeletonIdle', 'assets/spritesheets/enemies/skeleton/Idle.png', { frameWidth: 150, frameHeight: 150 })
     this.load.spritesheet('skeletonWalk', 'assets/spritesheets/enemies/skeleton/Walk.png', { frameWidth: 150, frameHeight: 150 })
   }
@@ -39,7 +40,7 @@ class SceneMain extends Phaser.Scene {
 
     gameState.clockReady = false;
 
-    gameState.player = this.physics.add.sprite(25, 300, 'playerIdle').setScale(1).setSize(35, 35, true).setGravityY(200);
+    gameState.player = this.physics.add.sprite(25, 300, 'playerIdle').setScale(1.4).setSize(25, 30, true).setGravityY(200);
     gameState.player.jumbReady = true;
     gameState.player.setCollideWorldBounds(true);
 
@@ -67,6 +68,7 @@ class SceneMain extends Phaser.Scene {
       if(enemy.body.touching.right) {
         enemy.setVelocityX(-25);
         enemy.flipX = true;
+        //enemy.anims.play('skeletonIdle');
       }
       else if(enemy.body.touching.left) {
           enemy.setVelocityX(25);
@@ -90,22 +92,31 @@ class SceneMain extends Phaser.Scene {
   
     gameState.player.angle = 360;
   
-    enemyGen(5);
+    enemyGen(5, 'skeletonWalk');
   
-    //New Code Character Animations
+    //Player Animations
     this.anims.create({
       key: 'playerIdle',
-      frames: this.anims.generateFrameNumbers('playerIdle', { start: 1, end: 5 }),
-      frameRate: 5,
+      frames: this.anims.generateFrameNumbers('playerIdle', { start: 1, end: 3 }),
+      frameRate: 3,
       repeat: -1
     });
   
     this.anims.create({
       key: 'playerRun',
-      frames: this.anims.generateFrameNumbers('playerRun', { start: 1, end: 5 }),
-      frameRate: 5,
-      repeat: -1
+      frames: this.anims.generateFrameNumbers('playerRun', { start: 1, end: 6 }),
+      frameRate: 6,
+      repeat: 0
     });
+
+    this.anims.create({
+      key: 'playerAttack1',
+      frames: this.anims.generateFrameNumbers('playerAttack1', { start: 1, end: 5 }),
+      frameRate: 5,
+      repeat: 0
+    })  
+
+    //Enemy Animations
   
     this.anims.create({
       key: 'skeletonIdle',
@@ -113,6 +124,13 @@ class SceneMain extends Phaser.Scene {
       frameRate: 5,
       repeat: -1
     })  
+
+    this.anims.create({
+      key: 'skeletonWalk',
+      frames: this.anims.generateFrameNumbers('skeletonWalk', { start: 1, end: 4 }),
+      frameRate: 5,
+      repeat: -1
+    })
   }
   
   //Runs every frame
@@ -132,7 +150,7 @@ class SceneMain extends Phaser.Scene {
       gameState.gameClock = new Phaser.Time.Clock(this);
       gameState.gameClock = this.time;
       gameState.arrowClockSnapshot = gameState.gameClock.now;
-      gameState.blasterClockSnapshot = gameState.gameClock.now;
+      gameState.attackClockSnapshot = gameState.gameClock.now;
       gameState.clockReady = true;
     }
   
@@ -167,8 +185,24 @@ class SceneMain extends Phaser.Scene {
         //Else idle and stop moving horizontally
         else {
           gameState.player.setVelocityX(0);
+          console.log(gameState.player.anims.isPlaying);
+          if(gameState.player.anims.isPlaying) {
+            console.log(gameState.player.anims.currentAnim.key == 'playerAttack1');
+          }
+
           if(!gameState.isAiming) {
-            gameState.player.anims.play('playerIdle', true);
+            if(gameState.player.anims.isPlaying && 
+              (!gameState.player.anims.currentAnim.key == 'playerAttack1'
+               || !gameState.player.anims.currentAnim.key == 'playerAttack2'
+               || !gameState.player.anims.currentAnim.key == 'playerAttack3')) {
+              gameState.player.anims.play('playerIdle', true);
+            }
+            else if(gameState.player.anims.isPlaying && gameState.player.anims.currentAnim.key == 'playerRun') {
+              gameState.player.anims.play('playerIdle', true);
+            }
+            else if(!gameState.player.anims.isPlaying) {
+              gameState.player.anims.play('playerIdle', true);
+            }
           }
         }
     
@@ -199,18 +233,12 @@ class SceneMain extends Phaser.Scene {
   
     //Press Spacebar: Fire Blaster
     if(this.cursors.spacebar.isDown
+       && !this.cursors.left.isDown
+       && !this.cursors.right.isDown
        && !gameState.isAiming
-       && cooldownReady(gameState.blasterClockSnapshot, gameState.gameClock.now, 500)) {
-        let projectile = createProjectile(this);
-        if(gameState.player.flipX) {
-          projectile.angle = 180;
-        }
-        else {
-          projectile.angle = 0;
-        }
-        gameState.blasterClockSnapshot = gameState.gameClock.now;
-        gameState.projectiles.add(projectile);
-        this.sound.play('playerBlasterSound', { volume: 0.25	});
+       && cooldownReady(gameState.attackClockSnapshot, gameState.gameClock.now, 500)) {
+        gameState.attackClockSnapshot = gameState.gameClock.now;
+        gameState.player.anims.play('playerAttack1');
     } 
   
   
@@ -259,7 +287,6 @@ class SceneMain extends Phaser.Scene {
         projectile.angle = angleDeg;
         gameState.projectiles.add(projectile);
         gameState.arrowClockSnapshot = gameState.gameClock.now;
-        gameState.blasterClockSnapshot = gameState.gameClock.now;
         gameState.blasterArrow.destroy();
         gameState.blasterArrow = null;
         gameState.isAiming = false;
@@ -284,7 +311,7 @@ class SceneMain extends Phaser.Scene {
       updateEnemies(enemies)
       for(let i = 0; i < enemies.length; i++) {
         if(!gameState.blasterArrow) {
-          enemies[i].anims.play('skeletonIdle', true);
+          enemies[i].anims.play('skeletonWalk', true);
         }
         else {
           enemies[i].anims.pause();
