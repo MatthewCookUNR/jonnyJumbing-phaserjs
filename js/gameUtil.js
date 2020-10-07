@@ -134,5 +134,6 @@
       .setSize(35, 35, true);
       enemy.flipX = true;
       enemy.setVelocityX(-25);
+      enemy.health = 3;
     }
   }

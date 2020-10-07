@@ -20,6 +20,8 @@ class SceneMain extends Phaser.Scene {
     this.load.spritesheet('playerIdle', 'assets/spritesheets/player/player_idle.png', { frameWidth: 52, frameHeight: 39 });
     this.load.spritesheet('playerRun', 'assets/spritesheets/player/player_run.png', { frameWidth: 52, frameHeight: 39 });
     this.load.spritesheet('playerAttack1', 'assets/spritesheets/player/player_attack_p1.png', {frameWidth: 52, frameHeight: 39} )
+    this.load.spritesheet('playerAttack2', 'assets/spritesheets/player/player_attack_p2.png', {frameWidth: 52, frameHeight: 39} )
+    this.load.spritesheet('playerAttack3', 'assets/spritesheets/player/player_attack_p3.png', {frameWidth: 52, frameHeight: 39} )
     this.load.spritesheet('skeletonIdle', 'assets/spritesheets/enemies/skeleton/Idle.png', { frameWidth: 150, frameHeight: 150 })
     this.load.spritesheet('skeletonWalk', 'assets/spritesheets/enemies/skeleton/Walk.png', { frameWidth: 150, frameHeight: 150 })
   }
@@ -30,6 +32,7 @@ class SceneMain extends Phaser.Scene {
     //Create Static Groups
     gameState.platforms = this.physics.add.staticGroup();
     gameState.platformBuffer = this.physics.add.staticGroup();
+    gameState.playerAttackBox = this.physics.add.staticGroup();
 
     //Create Groups
     gameState.projectiles = this.physics.add.group();
@@ -43,6 +46,7 @@ class SceneMain extends Phaser.Scene {
     gameState.player = this.physics.add.sprite(25, 300, 'playerIdle').setScale(1.4).setSize(25, 30, true).setGravityY(200);
     gameState.player.jumbReady = true;
     gameState.player.setCollideWorldBounds(true);
+    gameState.player.attackPhase = 0;
 
     //Create AlignGrid for placing objects/platforms
     gameState.aGrid = new AlignGrid({scene:this,rows:11,cols:20});
@@ -57,7 +61,7 @@ class SceneMain extends Phaser.Scene {
     //Create on-screen display UI
     gameState.scoreText = this.add.text(320, 365, 'Score: 0', { fontSize: '15px', fill: '#000' })
       
-    //Collider for play to not fall through platforms
+    //Collider for player to not fall through platforms
     this.physics.add.collider(gameState.player, gameState.platforms, function () {
       gameState.player.jumbReady = true;
     });
@@ -75,6 +79,15 @@ class SceneMain extends Phaser.Scene {
           enemy.flipX = false;
       }
     });
+
+    //Overlap collider enemies to add buffer at end of platforms to help keep enemies
+    //from walking off
+    this.physics.add.overlap(gameState.enemies, gameState.playerAttackBox, function (enemy, attackBox) {
+      enemy.health--;
+      if(enemy.health === 0) {
+        enemy.destroy();
+      }
+    });
       
     //Collider for enemies to bounce movement
     //when they hit a platform from left or right side
@@ -89,10 +102,10 @@ class SceneMain extends Phaser.Scene {
       }
     });
   
-  
     gameState.player.angle = 360;
   
     enemyGen(5, 'skeletonWalk');
+
   
     //Player Animations
     this.anims.create({
@@ -112,6 +125,20 @@ class SceneMain extends Phaser.Scene {
     this.anims.create({
       key: 'playerAttack1',
       frames: this.anims.generateFrameNumbers('playerAttack1', { start: 1, end: 5 }),
+      frameRate: 5,
+      repeat: 0
+    })  
+
+    this.anims.create({
+      key: 'playerAttack2',
+      frames: this.anims.generateFrameNumbers('playerAttack2', { start: 1, end: 5 }),
+      frameRate: 5,
+      repeat: 0
+    })  
+
+    this.anims.create({
+      key: 'playerAttack3',
+      frames: this.anims.generateFrameNumbers('playerAttack3', { start: 1, end: 5 }),
       frameRate: 5,
       repeat: 0
     })  
@@ -151,67 +178,93 @@ class SceneMain extends Phaser.Scene {
       gameState.gameClock = this.time;
       gameState.arrowClockSnapshot = gameState.gameClock.now;
       gameState.attackClockSnapshot = gameState.gameClock.now;
+      gameState.playerAttackHitBoxClock = null;
       gameState.clockReady = true;
     }
   
     gameState.gameClock = this.time;
-      //Movement and "Jumbing"
-      //Press A: move left
-        if(this.cursors.left.isDown){
-          gameState.player.setVelocityX(-200)
-          if(!gameState.isAiming) {
-            gameState.player.anims.play('playerRun', true);
-          }
-          if(gameState.blasterArrow && !gameState.player.flipX) {
-            let flipAngle = flipRotationAlongXAxis(gameState.blasterArrow.angle);
-            Phaser.Actions.RotateAround([gameState.blasterArrow], gameState.player, Phaser.Math.DegToRad(flipAngle));
-            gameState.blasterArrow.reverse = !gameState.blasterArrow.reverse;
-          }
-          gameState.player.flipX = true;
-        } 
-        //Press D: move right
-        else if (this.cursors.right.isDown) {
-          gameState.player.setVelocityX(200)
-          if(!gameState.isAiming) {
-            gameState.player.anims.play('playerRun', true);
-          }
-          if(gameState.blasterArrow && gameState.player.flipX) {
-            let flipAngle = flipRotationAlongXAxis(gameState.blasterArrow.angle);
-            Phaser.Actions.RotateAround([gameState.blasterArrow], gameState.player, Phaser.Math.DegToRad(flipAngle));
-            gameState.blasterArrow.reverse = !gameState.blasterArrow.reverse;
-          }
-          gameState.player.flipX = false;
-        }
-        //Else idle and stop moving horizontally
-        else {
-          gameState.player.setVelocityX(0);
-          console.log(gameState.player.anims.isPlaying);
-          if(gameState.player.anims.isPlaying) {
-            console.log(gameState.player.anims.currentAnim.key == 'playerAttack1');
-          }
 
-          if(!gameState.isAiming) {
-            if(gameState.player.anims.isPlaying && 
-              (!gameState.player.anims.currentAnim.key == 'playerAttack1'
-               || !gameState.player.anims.currentAnim.key == 'playerAttack2'
-               || !gameState.player.anims.currentAnim.key == 'playerAttack3')) {
-              gameState.player.anims.play('playerIdle', true);
-            }
-            else if(gameState.player.anims.isPlaying && gameState.player.anims.currentAnim.key == 'playerRun') {
-              gameState.player.anims.play('playerIdle', true);
-            }
-            else if(!gameState.player.anims.isPlaying) {
-              gameState.player.anims.play('playerIdle', true);
-            }
-          }
+    /*
+    *
+    *
+    * MOVEMENT FUNCTIONALITY
+    * 
+    * 
+    */
+
+    //Press A: move left
+    if(this.cursors.left.isDown){
+      gameState.player.setVelocityX(-200)
+      if(!gameState.isAiming) {
+        gameState.player.anims.play('playerRun', true);
+      }
+      if(gameState.player.attackPhase != 0) 
+      {
+        gameState.player.attackPhase = 0;
+        gameState.playerAttackHitBoxClock = null;
+      }
+      if(gameState.blasterArrow && !gameState.player.flipX) {
+        let flipAngle = flipRotationAlongXAxis(gameState.blasterArrow.angle);
+        Phaser.Actions.RotateAround([gameState.blasterArrow], gameState.player, Phaser.Math.DegToRad(flipAngle));
+        gameState.blasterArrow.reverse = !gameState.blasterArrow.reverse;
+      }
+      gameState.player.flipX = true;
+    } 
+    //Press D: move right
+    else if (this.cursors.right.isDown) {
+      gameState.player.setVelocityX(200)
+      if(!gameState.isAiming) {
+        gameState.player.anims.play('playerRun', true);
+      }
+      if(gameState.player.attackPhase != 0) 
+      {
+        gameState.player.attackPhase = 0;
+        gameState.playerAttackHitBoxClock = null;
+      }
+      if(gameState.blasterArrow && gameState.player.flipX) {
+        let flipAngle = flipRotationAlongXAxis(gameState.blasterArrow.angle);
+        Phaser.Actions.RotateAround([gameState.blasterArrow], gameState.player, Phaser.Math.DegToRad(flipAngle));
+        gameState.blasterArrow.reverse = !gameState.blasterArrow.reverse;
+      }
+      gameState.player.flipX = false;
+    }
+    //Else idle and stop moving horizontally
+    else {
+      gameState.player.setVelocityX(0);
+      /*console.log(gameState.player.anims.isPlaying);
+      if(gameState.player.anims.isPlaying) {
+        console.log(gameState.player.anims.currentAnim.key == 'playerAttack1');
+      }*/
+
+      if(!gameState.isAiming) {
+        if(gameState.player.anims.isPlaying && 
+          (!gameState.player.anims.currentAnim.key == 'playerAttack1'
+          || !gameState.player.anims.currentAnim.key == 'playerAttack2'
+          || !gameState.player.anims.currentAnim.key == 'playerAttack3')) {
+            gameState.player.anims.play('playerIdle', true);
         }
+        else if(gameState.player.anims.isPlaying && gameState.player.anims.currentAnim.key == 'playerRun') {
+          gameState.player.anims.play('playerIdle', true);
+        }
+        else if(!gameState.player.anims.isPlaying) {
+          gameState.player.anims.play('playerIdle', true);
+        }
+      }
+    }
     
-        //Press W: Jumping
-        if(this.cursors.up.isDown && gameState.player.jumbReady) {
-          gameState.player.jumbReady = false;
-          gameState.player.setVelocityY(-250);
-        }
+    //Press W: Jumping
+    if(this.cursors.up.isDown && gameState.player.jumbReady) {
+      gameState.player.jumbReady = false;
+      gameState.player.setVelocityY(-250);
+    }
   
+    /*
+    *
+    *
+    * SPECIAL ARROW ATTACK
+    * 
+    * 
+    */
     //Press E: Create Arrow
     if(this.cursors.eKey.isDown && !gameState.isAiming) {
       if(cooldownReady(gameState.arrowClockSnapshot, gameState.gameClock.now, 2000)) {
@@ -230,18 +283,7 @@ class SceneMain extends Phaser.Scene {
         gameState.arrowClockSnapshot = gameState.gameClock.now;
       }
     }
-  
-    //Press Spacebar: Fire Blaster
-    if(this.cursors.spacebar.isDown
-       && !this.cursors.left.isDown
-       && !this.cursors.right.isDown
-       && !gameState.isAiming
-       && cooldownReady(gameState.attackClockSnapshot, gameState.gameClock.now, 500)) {
-        gameState.attackClockSnapshot = gameState.gameClock.now;
-        gameState.player.anims.play('playerAttack1');
-    } 
-  
-  
+
     //Handles gun aiming arrow movement
     if(gameState.blasterArrow) {
       //Calculates direction pointing from player
@@ -305,7 +347,75 @@ class SceneMain extends Phaser.Scene {
         bullets[i].setVelocityY(vec.y);
       }
     }
+
+    /*
+    *
+    *
+    * MELEE ATTACK
+    * 
+    * 
+    */
+
+    //Removes unhit hitbox if it exists
+    if(gameState.playerAttackBox.getChildren().length != 0) {
+      gameState.playerAttackBox.getChildren()[0].destroy();
+    }
+
+    //Handle Player Hitbox for Attacks
+    if(gameState.playerAttackHitBoxClock) {
+      if(cooldownReady(gameState.playerAttackHitBoxClock, gameState.gameClock.now, 400)) {
+        gameState.playerAttackHitBoxClock = null;
+        let block;
+        if(gameState.player.flipX) {
+          block = this.add.sprite(gameState.player.x-20,gameState.player.y ,'grassTile').setScale(0.5).setVisible(false);
+        }
+        else {
+          block = this.add.sprite(gameState.player.x+20,gameState.player.y,'grassTile').setScale(0.5).setVisible(false);
+        }
+        gameState.playerAttackBox.add(block);
+      }
+    }
   
+    //Press Spacebar: Melee Attack
+    if(this.cursors.spacebar.isDown
+       && !this.cursors.left.isDown
+       && !this.cursors.right.isDown
+       && !gameState.isAiming
+       && cooldownReady(gameState.attackClockSnapshot, gameState.gameClock.now, 500)) {
+        if(gameState.player.attackPhase === 0) {
+          gameState.player.anims.play('playerAttack1');
+          gameState.attackClockSnapshot = gameState.gameClock.now;
+          gameState.playerAttackHitBoxClock = gameState.gameClock.now;
+          gameState.player.attackPhase = 1;
+          //console.log("Attack 1");
+        }
+        else if(gameState.player.attackPhase === 1) {
+          gameState.player.anims.play('playerAttack2');
+          gameState.attackClockSnapshot = gameState.gameClock.now;
+          gameState.playerAttackHitBoxClock = gameState.gameClock.now;
+          gameState.player.attackPhase = 2;
+          //console.log("Attack 2");
+        }
+        else if(gameState.player.attackPhase === 2) {
+          gameState.player.anims.play('playerAttack3');
+          gameState.attackClockSnapshot = gameState.gameClock.now;
+          gameState.playerAttackHitBoxClock = gameState.gameClock.now;
+          gameState.player.attackPhase = 3;
+          //console.log("Attack 3");
+        }
+    }
+
+    //Resets Attack Cooldown if not actions taken and time passes
+    if(cooldownReady(gameState.attackClockSnapshot, gameState.gameClock.now, 500)) {
+      gameState.player.attackPhase = 0;
+    }
+  
+    /*
+    *
+    *
+    * ENEMY
+    * 
+    */
     //Handles Enemies
       let enemies = gameState.enemies.getChildren();
       updateEnemies(enemies)
